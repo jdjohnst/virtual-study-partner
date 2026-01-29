@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Study Partner</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a1a">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW Registered'))
+                    .catch(err => console.log('SW Failed:', err));
+            });
+        }
+    </script>
+    
+    <style>
+        :root {
+            --font-mono: 'JetBrains Mono', 'Courier New', Courier, monospace;
+            --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            --glass-bg: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-primary: #ffffff;
+            --text-dim: rgba(255, 255, 255, 0.5);
+            --transition-speed: 0.3s;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            font-family: var(--font-ui);
+            background-color: #1a1a1a; /* Fallback */
+        }
+
+        /* Video Background */
+        #bg-video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            z-index: -1;
+            transition: filter var(--transition-speed) ease;
+        }
+
+        /* Overlay Container */
+        .app-overlay {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            display: grid;
+            grid-template-rows: 1fr auto;
+            grid-template-columns: 1fr;
+            padding: 2rem;
+            background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 40%);
+        }
+
+        /* Timers Area (Bottom Left) */
+        .timer-container {
+            position: absolute;
+            bottom: 2rem;
+            left: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .timer {
+            font-family: var(--font-mono);
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-feature-settings: "tnum";
+            font-variant-numeric: tabular-nums;
+            transition: opacity var(--transition-speed), transform var(--transition-speed);
+        }
+
+        .timer-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-dim);
+            margin-bottom: -5px;
+        }
+
+        /* Timer States */
+        .timer.dimmed {
+            opacity: 0.5;
+            transform: scale(0.95);
+            transform-origin: left bottom;
+        }
+
+        .break-timer {
+            color: #81e6d9; /* Teal for break distinction */
+        }
+
+        /* Controls Dock (Bottom Center) */
+        .controls-dock {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 1.5rem;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: all var(--transition-speed) ease;
+        }
+
+        button {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.8);
+        }
+
+        button.primary {
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            border: none;
+        }
+
+        button.primary:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255,255,255,0.3);
+        }
+
+        button.danger {
+            border-color: #fc8181;
+            color: #fc8181;
+        }
+
+        button.danger:hover {
+            background: rgba(252, 129, 129, 0.1);
+        }
+
+        /* Utility Classes for Visibility Management */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            .timer-container {
+                bottom: 6rem; /* Move up to avoid overlapping centered controls if needed */
+                left: 1.5rem;
+            }
+            .timer {
+                font-size: 2rem;
+            }
+            .controls-dock {
+                width: 90%;
+                justify-content: center;
+                bottom: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <video id="bg-video" loop muted playsinline poster="https://images.pexels.com/photos/301920/pexels-photo-301920.jpeg">
+        <source src="https://player.vimeo.com/external/371836931.sd.mp4?s=1208a689e496df873425260124354c0383794503&profile_id=164&oauth2_token_id=57447761" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <div class="app-overlay">
+        <div class="timer-container">
+            <div id="study-timer-group">
+                <div class="timer-label">Session Time</div>
+                <div id="study-timer" class="timer">00:00:00</div>
+            </div>
+            
+            <div id="break-timer-group" class="hidden">
+                <div class="timer-label">Break Time</div>
+                <div id="break-timer" class="timer break-timer">00:00:00</div>
+            </div>
+        </div>
+
+        <div class="controls-dock">
+            <button id="btn-start" class="primary">Start Study Session</button>
+            <button id="btn-break" class="hidden">Take a Break</button>
+            <button id="btn-stop" class="danger hidden">Stop</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Virtual Study Partner Logic
+         * Handles state transitions between Idle, Study, and Break.
+         */
+        
+        // DOM Elements
+        const video = document.getElementById('bg-video');
+        const studyTimerEl = document.getElementById('study-timer');
+        const breakTimerEl = document.getElementById('break-timer');
+        const breakGroupEl = document.getElementById('break-timer-group');
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnBreak = document.getElementById('btn-break');
+        const btnStop = document.getElementById('btn-stop');
+
+        // State Variables
+        let studySeconds = 0;
+        let breakSeconds = 0;
+        let studyInterval = null;
+        let breakInterval = null;
+        let currentState = 'IDLE'; // IDLE, STUDY, BREAK
+
+        // Format Helper: Seconds -> HH:MM:SS
+        const formatTime = (totalSeconds) => {
+            const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+            const s = (totalSeconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        };
+
+        // UI Update Helpers
+        const updateStudyDisplay = () => studyTimerEl.textContent = formatTime(studySeconds);
+        const updateBreakDisplay = () => breakTimerEl.textContent = formatTime(breakSeconds);
+
+        // State Machine Actions
+        const actions = {
+            startStudy: () => {
+                currentState = 'STUDY';
+                
+                // Video Control
+                video.play().catch(e => console.log("Auto-play prevented:", e));
+
+                // Timer Logic
+                if (breakInterval) clearInterval(breakInterval);
+                studyInterval = setInterval(() => {
+                    studySeconds++;
+                    updateStudyDisplay();
+                }, 1000);
+
+                // UI Updates
+                studyTimerEl.classList.remove('dimmed');
+                breakGroupEl.classList.add('hidden'); // Hide break timer logic
+
+                // Button Visibility
+                btnStart.classList.add('hidden');
+                btnBreak.classList.remove('hidden');
+                btnStop.classList.remove('hidden');
+                
+                // Update Button Text if returning from break
+                btnStart.textContent = "Resume Session"; 
+            },
+
+            takeBreak: () => {
+                currentState = 'BREAK';
+
+                // Video Control
+                video.pause();
+
+                // Timer Logic
+                clearInterval(studyInterval);
+                breakSeconds = 0; // Reset break timer on new break
+                updateBreakDisplay();
+                
+                breakInterval = setInterval(() => {
+                    breakSeconds++;
+                    updateBreakDisplay();
+                }, 1000);
+
+                // UI Updates
+                studyTimerEl.classList.add('dimmed');
+                breakGroupEl.classList.remove('hidden');
+
+                // Button Visibility
+                btnStart.classList.remove('hidden'); // Reappears to resume
+                btnStart.textContent = "Resume Session";
+                btnBreak.classList.add('hidden');
+                // btnStop remains visible
+            },
+
+            stopSession: () => {
+                currentState = 'IDLE';
+
+                // Video Control
+                video.pause();
+                video.currentTime = 0; // Reset video
+
+                // Timer Cleanup
+                clearInterval(studyInterval);
+                clearInterval(breakInterval);
+                
+                // Reset Values
+                studySeconds = 0;
+                breakSeconds = 0;
+                updateStudyDisplay();
+                updateBreakDisplay();
+
+                // UI Reset
+                studyTimerEl.classList.remove('dimmed');
+                breakGroupEl.classList.add('hidden');
+
+                // Button Visibility
+                btnStart.classList.remove('hidden');
+                btnStart.textContent = "Start Study Session";
+                btnBreak.classList.add('hidden');
+                btnStop.classList.add('hidden');
+            }
+        };
+
+        // Event Listeners
+        btnStart.addEventListener('click', actions.startStudy);
+        btnBreak.addEventListener('click', actions.takeBreak);
+        btnStop.addEventListener('click', actions.stopSession);
+
+        // Initialization
+        updateStudyDisplay();
+
+    </script>
+</body>
+</html>

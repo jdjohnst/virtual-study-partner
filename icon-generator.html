@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Icon Generator</title>
+    <style>
+        body { font-family: sans-serif; background: #333; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 20px; }
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; background: #00d2ff; border: none; border-radius: 5px; color: #000; font-weight: bold; }
+        canvas { border: 1px solid #555; margin-bottom: 10px; display: none; } /* Hidden canvas */
+    </style>
+</head>
+<body>
+    <h2>PWA Icon Generator</h2>
+    <p>Click below to download the required assets.</p>
+    <button onclick="downloadIcon(192)">Download icon-192.png</button>
+    <button onclick="downloadIcon(512)">Download icon-512.png</button>
+
+    <script>
+        function downloadIcon(size) {
+            // 1. Create Canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // 2. Draw Background (Matches App Theme)
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, size, size);
+
+            // 3. Draw Text/Logo
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `bold ${size * 0.5}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('SP', size / 2, size / 2);
+
+            // 4. Trigger Download
+            const link = document.createElement('a');
+            link.download = `icon-${size}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
