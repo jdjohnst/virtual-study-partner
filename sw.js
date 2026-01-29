@@ -2,8 +2,12 @@ const CACHE_NAME = 'study-partner-v1';
 const ASSETS = [
   './index.html',
   './manifest.json',
-  // Add your local video/image paths here if you downloaded them
-  // e.g., './background.mp4'
+  './icon-192.png',
+  './icon-512.png',
+  './Clip1VSP.mp4',
+  './Clip2VSP.mp4',
+  './Clip3VSP.mp4',
+  './Clip4VSP.mp4'
 ];
 
 // Install Event: Cache core assets
