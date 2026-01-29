@@ -51,7 +51,8 @@
             width: 100vw;
             height: 100vh;
             object-fit: cover;
-            z-index: -1;
+            /* FIXED: Changed from -1 to 0 so it sits ON TOP of the body background */
+            z-index: 0; 
             transition: filter var(--transition-speed) ease;
         }
 
@@ -65,9 +66,11 @@
             grid-template-columns: 1fr;
             padding: 2rem;
             background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 40%);
+            /* FIXED: Added z-index 1 to ensure buttons sit ON TOP of the video */
+            z-index: 1; 
         }
 
-        /* --- NEW: Theme Selector --- */
+        /* Theme Selector */
         .theme-selector {
             position: absolute;
             top: 2rem;
