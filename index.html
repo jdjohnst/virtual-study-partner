@@ -40,7 +40,7 @@
             width: 100%;
             overflow: hidden;
             font-family: var(--font-ui);
-            background-color: #1a1a1a; /* Fallback */
+            background-color: #1a1a1a;
         }
 
         /* Video Background */
@@ -67,7 +67,45 @@
             background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 40%);
         }
 
-        /* Timers Area (Bottom Left) */
+        /* --- NEW: Theme Selector --- */
+        .theme-selector {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            z-index: 10;
+        }
+
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            padding-right: 2.5rem;
+            border-radius: 8px;
+            font-family: var(--font-ui);
+            font-size: 0.9rem;
+            cursor: pointer;
+            outline: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1em;
+        }
+
+        select:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        select option {
+            background-color: #1a1a1a;
+            color: white;
+        }
+
+        /* Timers Area */
         .timer-container {
             position: absolute;
             bottom: 2rem;
@@ -96,7 +134,6 @@
             margin-bottom: -5px;
         }
 
-        /* Timer States */
         .timer.dimmed {
             opacity: 0.5;
             transform: scale(0.95);
@@ -104,10 +141,10 @@
         }
 
         .break-timer {
-            color: #81e6d9; /* Teal for break distinction */
+            color: #81e6d9;
         }
 
-        /* Controls Dock (Bottom Center) */
+        /* Controls Dock */
         .controls-dock {
             position: absolute;
             bottom: 2rem;
@@ -165,15 +202,13 @@
             background: rgba(252, 129, 129, 0.1);
         }
 
-        /* Utility Classes for Visibility Management */
         .hidden {
             display: none !important;
         }
 
-        /* Mobile Responsiveness */
         @media (max-width: 768px) {
             .timer-container {
-                bottom: 6rem; /* Move up to avoid overlapping centered controls if needed */
+                bottom: 6rem;
                 left: 1.5rem;
             }
             .timer {
@@ -189,12 +224,22 @@
 </head>
 <body>
 
-    <video id="bg-video" loop muted playsinline poster="https://images.pexels.com/photos/301920/pexels-photo-301920.jpeg">
-        <source src="https://player.vimeo.com/external/371836931.sd.mp4?s=1208a689e496df873425260124354c0383794503&profile_id=164&oauth2_token_id=57447761" type="video/mp4">
+    <video id="bg-video" loop muted playsinline poster="icon-512.png">
+        <source src="./study-loop.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
 
     <div class="app-overlay">
+        
+        <div class="theme-selector">
+            <select id="video-select">
+                <option value="./study-loop.mp4" selected>Default Study Room</option>
+                <option value="./library.mp4">Cozy Library</option>
+                <option value="./rain-window.mp4">Rainy Window</option>
+                <option value="./nature.mp4">Nature Park</option>
+            </select>
+        </div>
+
         <div class="timer-container">
             <div id="study-timer-group">
                 <div class="timer-label">Session Time</div>
@@ -215,17 +260,12 @@
     </div>
 
     <script>
-        /**
-         * Virtual Study Partner Logic
-         * Handles state transitions between Idle, Study, and Break.
-         */
-        
         // DOM Elements
         const video = document.getElementById('bg-video');
+        const videoSelector = document.getElementById('video-select');
         const studyTimerEl = document.getElementById('study-timer');
         const breakTimerEl = document.getElementById('break-timer');
         const breakGroupEl = document.getElementById('break-timer-group');
-        
         const btnStart = document.getElementById('btn-start');
         const btnBreak = document.getElementById('btn-break');
         const btnStop = document.getElementById('btn-stop');
@@ -235,9 +275,8 @@
         let breakSeconds = 0;
         let studyInterval = null;
         let breakInterval = null;
-        let currentState = 'IDLE'; // IDLE, STUDY, BREAK
+        let currentState = 'IDLE'; 
 
-        // Format Helper: Seconds -> HH:MM:SS
         const formatTime = (totalSeconds) => {
             const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
             const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
@@ -245,47 +284,47 @@
             return `${h}:${m}:${s}`;
         };
 
-        // UI Update Helpers
         const updateStudyDisplay = () => studyTimerEl.textContent = formatTime(studySeconds);
         const updateBreakDisplay = () => breakTimerEl.textContent = formatTime(breakSeconds);
 
-        // State Machine Actions
+        // NEW: Video Switching Logic
+        videoSelector.addEventListener('change', (e) => {
+            const newSource = e.target.value;
+            const isPlaying = !video.paused;
+            
+            video.src = newSource;
+            video.load();
+
+            if (isPlaying) {
+                video.play().catch(err => console.log("Play interrupted:", err));
+            }
+        });
+
         const actions = {
             startStudy: () => {
                 currentState = 'STUDY';
-                
-                // Video Control
                 video.play().catch(e => console.log("Auto-play prevented:", e));
 
-                // Timer Logic
                 if (breakInterval) clearInterval(breakInterval);
                 studyInterval = setInterval(() => {
                     studySeconds++;
                     updateStudyDisplay();
                 }, 1000);
 
-                // UI Updates
                 studyTimerEl.classList.remove('dimmed');
-                breakGroupEl.classList.add('hidden'); // Hide break timer logic
-
-                // Button Visibility
+                breakGroupEl.classList.add('hidden');
                 btnStart.classList.add('hidden');
                 btnBreak.classList.remove('hidden');
                 btnStop.classList.remove('hidden');
-                
-                // Update Button Text if returning from break
                 btnStart.textContent = "Resume Session"; 
             },
 
             takeBreak: () => {
                 currentState = 'BREAK';
-
-                // Video Control
                 video.pause();
 
-                // Timer Logic
                 clearInterval(studyInterval);
-                breakSeconds = 0; // Reset break timer on new break
+                breakSeconds = 0; 
                 updateBreakDisplay();
                 
                 breakInterval = setInterval(() => {
@@ -293,39 +332,28 @@
                     updateBreakDisplay();
                 }, 1000);
 
-                // UI Updates
                 studyTimerEl.classList.add('dimmed');
                 breakGroupEl.classList.remove('hidden');
-
-                // Button Visibility
-                btnStart.classList.remove('hidden'); // Reappears to resume
+                btnStart.classList.remove('hidden');
                 btnStart.textContent = "Resume Session";
                 btnBreak.classList.add('hidden');
-                // btnStop remains visible
             },
 
             stopSession: () => {
                 currentState = 'IDLE';
-
-                // Video Control
                 video.pause();
-                video.currentTime = 0; // Reset video
+                video.currentTime = 0;
 
-                // Timer Cleanup
                 clearInterval(studyInterval);
                 clearInterval(breakInterval);
                 
-                // Reset Values
                 studySeconds = 0;
                 breakSeconds = 0;
                 updateStudyDisplay();
                 updateBreakDisplay();
 
-                // UI Reset
                 studyTimerEl.classList.remove('dimmed');
                 breakGroupEl.classList.add('hidden');
-
-                // Button Visibility
                 btnStart.classList.remove('hidden');
                 btnStart.textContent = "Start Study Session";
                 btnBreak.classList.add('hidden');
@@ -333,14 +361,11 @@
             }
         };
 
-        // Event Listeners
         btnStart.addEventListener('click', actions.startStudy);
         btnBreak.addEventListener('click', actions.takeBreak);
         btnStop.addEventListener('click', actions.stopSession);
 
-        // Initialization
         updateStudyDisplay();
-
     </script>
 </body>
 </html>
