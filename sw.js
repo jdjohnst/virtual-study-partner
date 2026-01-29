@@ -3,11 +3,8 @@ const ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png',
-  './Clip1VSP.mp4',
-  './Clip2VSP.mp4',
-  './Clip3VSP.mp4',
-  './Clip4VSP.mp4'
+  './icon-512.png'
+  // Video files removed: We do not cache large external Cloudinary videos
 ];
 
 // Install Event: Cache core assets
